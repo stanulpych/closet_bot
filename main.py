@@ -1,6 +1,7 @@
 import telebot
 from functools import partial
 from models import *
+import textwrap
 
 bot = telebot.TeleBot('6629791393:AAF9w6GZZmIBK9h7zcfOGmiII65QJkXvLFc', parse_mode='HTML')
 
@@ -25,16 +26,17 @@ def Ans(message):
     if message.text == "Список":
         bot.send_message(message.chat.id, ListOfItems())
     if message.text == "Создать предмет":
-        bot.send_message(message.chat.id, "Введите название \n(Название должно быть в одно слово, например Название_предмета)")
+        bot.send_message(message.chat.id, "Введите название \n(Название должно быть в одно слово, например НазваниеПредмета)")
         bot.register_next_step_handler(message, NameOfItem)
     if message.text == "Взять предмет":
-        bot.send_message(message.chat.id, "Введите название предмета")
+        buttons = CreateButtons()
+        bot.send_message(message.chat.id, "Введите название предмета", reply_markup=buttons)
         bot.register_next_step_handler(message, TakeItemDetailBot)
     if message.text == "Вернуть предметы":
         bot.send_message(message.chat.id, ReturnItemDetail(message.from_user.username))
         bot.register_next_step_handler(message, ReturnItemNameBot)
     if message.text == "Взятые":
-        bot.send_message(message.chat.id, "Введите название предмета или тег пользователя\nВведите Все, если хотите посмотреть весь список")
+        bot.send_message(message.chat.id, "Введите название предмета или тег пользователя")
         bot.register_next_step_handler(message, NameOrTagListBot)
     if message.text == "Изменить кол-во предмета":
         bot.send_message(message.chat.id, "Введите название предмета")
@@ -64,6 +66,7 @@ def NameOfItem(message):
         bot.register_next_step_handler(message,partial(discr, Name))
 def discr(Name, message):
     Discription = message.text
+    Discription = textwrap.fill(Discription, 20)
     if len(Discription) >=200:
         bot.send_message(message.chat.id, "Длинновато")
     else:
@@ -95,11 +98,11 @@ def TakeItemBot(Name, message):
         Quantity = int(message.text)
     except ValueError:
         Quantity = 0
-        bot.send_message(message.chat.id, "Неправильное значение\nКол-во будет 0")
+        bot.send_message(message.chat.id, "Неправильное значение\nКол-во будет 0", reply_markup=markup)
     if Quantity < 0:
-        bot.send_message(message.chat.id, "Неверное значение")
+        bot.send_message(message.chat.id, "Неверное значение", reply_markup=markup)
     else:
-        bot.send_message(message.chat.id, TakeItem(Name, Quantity, message.from_user.username))
+        bot.send_message(message.chat.id, TakeItem(Name, Quantity, message.from_user.username), reply_markup=markup)
 
 
 #Возврат предмета в шкаф 
@@ -131,7 +134,7 @@ def EditBot(Name, message):
         bot.send_message(message.chat.id, "Неверное значение")
     else:
         EditQuantity(Name, Quantity)
-        bot.send_message(message.chat.id, "Success")
+        bot.send_message(message.chat.id, "Успешно")
 
 #
 def DeleteItemBot(message):

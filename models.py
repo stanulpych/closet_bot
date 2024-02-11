@@ -1,281 +1,156 @@
 import sqlite3
 from tabulate import tabulate
-import telebot 
-def CreateButtons():
-    # Создаем соединение с базой данных
-    conn = sqlite3.connect("shkaf.sqlite")
-    cursor = conn.cursor()
+import telebot
 
-    # Получаем все значения из указанной колонки
-    cursor.execute(f"SELECT Name FROM NewTable")
-    names = [row[0] for row in cursor.fetchall()]
+class SQLconnect():
+    def __init__(self):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        self.cursor.execute('CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, quantity INTEGER)')
+        self.cursor.execute('CREATE TABLE IF NOT EXISTS taken (id TEXT)')
+        
+    def AddUser(self, id):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        self.cursor.execute("INSERT INTO taken (id) VALUES (?)", (id,))
+        self.connect.commit()
+    def CreateButtons(self,):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        self.cursor.execute("SELECT name FROM items")
+        names = [row[0] for row in self.cursor.fetchall()]
+        markup = telebot.types.ReplyKeyboardMarkup(row_width=2)
+        for name in names:
+            item = telebot.types.KeyboardButton(name)
+            markup.add(item)
 
-    # Закрываем соединение с базой данных
-    conn.close()
-    markup = telebot.types.ReplyKeyboardMarkup(row_width=2)
-    for name in names:
-        item = telebot.types.KeyboardButton(name)
-        markup.add(item)
+        return markup
+    def ListOfItems(self,):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        self.cursor.execute("SELECT name, description, quantity FROM items")
+        answer = f"<pre>{tabulate(self.cursor.fetchall(), headers=['NAME', 'DISCR', 'QUANT'], tablefmt='orgtbl', colalign=('center',))}</pre>"
+        return answer
 
-    return markup
+    def ListOfTaken(self,):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        result = ''
+        self.cursor.execute("PRAGMA table_info(taken)")
+        columns = [column[1] for column in self.cursor.fetchall()]
+        self.cursor.execute("SELECT * FROM taken")
+        rows = self.cursor.fetchall()
+        for i in range(1, len(columns)):
+            non_zero_entries = [f"@{row[0]} - {row[i]}" for row in rows if row[i] != 0]
+            if non_zero_entries:
+                result += f"{columns[i]} | "
+                if len(non_zero_entries) > 2:
+                    print(f"{non_zero_entries[0]}, {non_zero_entries[1]} и еще {len(non_zero_entries) - 2}...\n")
+                else:
+                    result += ", ".join(non_zero_entries)
+                    result += "\n"
+        if result:
+            return result
+        else:
+            return "Все предметы на месте!"
+        
+    def ListOfTakenByName(self, name):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        self.cursor.execute(f"SELECT id, {name.upper()} FROM taken")
+        data = self.cursor.fetchall()
+        answer = f"<pre>{tabulate(data, headers = ['TAGS', f'{name.upper()}'],  tablefmt='orgtbl', colalign=('center',))}</pre>"
+        return answer
 
-
-def ListOfItems():
-    ans = ''
-    try:
-        connection = sqlite3.connect("shkaf.sqlite")
-        cur = connection.cursor()
-        cur.execute("SELECT Name, Discription, Quantity FROM NewTable")
-        items = cur.fetchall()
-        ans = tabulate(items, headers=['NAME', 'DISCR', 'QUANT'], tablefmt='orgtbl', colalign=('center',))
-        ans = f'<pre>{ans}</pre>'
-    except sqlite3.Error as e:
-        print(f"Error getting list of items: {e}")
-    finally:
-        connection.close()
-    return ans
-
-def ListOfTaken():
-    res = ''
-    conn = sqlite3.connect("taken.sqlite")
-    cursor = conn.cursor()
-
-    # Получаем имена всех столбцов в таблице
-    cursor.execute("PRAGMA table_info(NewTable)")
-    columns = [column[1] for column in cursor.fetchall()]
-
-    # Получаем все строки из таблицы
-    cursor.execute("SELECT * FROM NewTable")
-    rows = cursor.fetchall()
-
-    # Обрабатываем каждый столбец, начиная со второго
-    for i in range(1, len(columns)):
-        # Собираем все ненулевые записи для текущего столбца
-        non_zero_entries = [f"@{row[0]} - {row[i]}" for row in rows if row[i] != 0]
-
-        # Если есть хотя бы одна ненулевая запись, выводим название столбца и ненулевые записи
-        if non_zero_entries:
-            res += f"{columns[i]} | "
-            if len(non_zero_entries) > 2:
-                print(f"{non_zero_entries[0]}, {non_zero_entries[1]} и еще {len(non_zero_entries) - 2}...\n")
-            else:
-                res += ", ".join(non_zero_entries)
-                res += "\n"
-
-    # Закрываем соединение с базой данных
-    conn.close()
-    return res
-
-
-def ListOfTakenByName(name):
-    ans = ''
-    try:
-        connection = sqlite3.connect("taken.sqlite")
-        cur = connection.cursor()
-        cur.execute(f"SELECT id, {name.upper()} FROM NewTable")
-        ans = cur.fetchall()
-        print(ans)
-    except sqlite3.Error as e:
-        print(f"Error getting list of taken items: {e}")
-    finally:
-        connection.close()
-    temp = ['TAGS', f'{name.upper()}']
-    try:
-        ans1 = tabulate(ans, headers = temp,  tablefmt='orgtbl', colalign=('center',))
-    except IndexError:
-        return "Тег должен содержать @\n Неправильный ввод"
-    ans1 = f"<pre>{ans1}</pre>"
-    return ans1
-def ListOfTakenByTag(name):
-    try:
-        with sqlite3.connect("taken.sqlite") as connection:
-            cur = connection.cursor()
-            cur.execute("SELECT * FROM NewTable WHERE id = ?", (name,))
-            ans = cur.fetchall()
-            print(ans)
-    except sqlite3.Error as e:
-        print(f"Error getting list of taken items: {e}")
-
-    temp = []
-    temp1 = []
-    with sqlite3.connect("shkaf.sqlite") as connection:
-        cur = connection.cursor()
-        cur.execute("SELECT Name FROM NewTable")
-        for row in cur.fetchall():
-            row = str(row)
-            row = row[2:-3:1]
+    def ListOfTakenByTag(self, name):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        self.cursor.execute("SELECT * FROM taken WHERE id = ?", (name,))
+        data = self.cursor.fetchall()
+        self.cursor.execute("SELECT name FROM items")
+        temp = []
+        temp1 = []
+        for row in self.cursor.fetchall():
+            row = str(row)[2:-3:1]
             temp.append(row)
-        print(temp, ans)
         for i in range(len(temp)):
-            temp1.append([temp[i],ans[0][i+1]])
-    ans = ['Items', ans[0][0]]
-    ans1 = tabulate(temp1, headers=ans, tablefmt='orgtbl', colalign=('center',))
-    ans1 = f"<pre>{ans1}</pre>"
-    return ans1
+            temp1.append([temp[i],data[0][i+1]])
+        data = ['Items', data[0][0]]
+        answer = f"<pre>{tabulate(temp1, headers=data, tablefmt='orgtbl', colalign=('center',))}</pre>"
+        return answer
 
-def EditQuantity(name, q):
-    try:
-        connection  = sqlite3.connect("shkaf.sqlite")
-        cur = connection.cursor()
-        cur.execute("UPDATE NewTable SET Quantity = ? WHERE Name = ?", (q, name.upper()))
-        connection.commit()
-    except sqlite3.Error as e:
-        print(f"Error editing quantity: {e}")
-    finally:
-        connection.close()
+    def EditQuantity(self, name, quantity):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        self.cursor.execute("UPDATE items SET quantity = ? WHERE name = ?", (quantity, name.upper()))
+        self.connect.commit()
 
-def DeleteItem(name):
-    try:
-        connection  = sqlite3.connect("shkaf.sqlite")
-        cur = connection.cursor()
-        cur.execute("DELETE FROM NewTable WHERE Name = ?", (name.upper(),))
-        if cur.rowcount == 0:
-            return "Неправильный ввод"
-        connection.commit()
-    except sqlite3.Error as e:
-        print(f"Error deleting item: {e}")
-        return "Неправильный ввод"
-    finally:
-        connection.close()
-    try:
-        connection = sqlite3.connect("taken.sqlite")
-        cur = connection.cursor()
-        cur.execute(f"ALTER TABLE NewTable DROP COLUMN {name.upper()}")
-        connection.commit()
-    except sqlite3.Error as e:
-        print(f'Error deleting item: {e}')
-    connection.close()
-    return "Успешно"
-
-
-def CreateItem(name, discr, quantity):
-    try:
-        connection = sqlite3.connect("shkaf.sqlite")
-        cur = connection.cursor()
-        cur.execute("SELECT Name FROM NewTable WHERE Name=?", (name.upper(),))
-        existing_item = cur.fetchone()
-
-        if existing_item:
-            ans = "Такой предмет уже есть"
+    def DeleteItem(self, name):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        self.cursor.execute("DELETE FROM items WHERE name =?", (name.upper(),))
+        self.cursor.execute(f"ALTER TABLE taken DROP COLUMN {name.upper()}")
+        self.connect.commit()
+        return "Успешно"
+    
+    def CreateItem(self, name, descr, quantity):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        if self.cursor.execute("SELECT name FROM items WHERE name = ?", (name.upper(),)).fetchall():
+                answer = "Такой предмет уже есть"
         else:
-            cur.execute('INSERT INTO NewTable VALUES (1, ?, ?, ?);', (name.upper(), discr, quantity))
-            connection.commit()
-            connection.close()
+                self.cursor.execute("INSERT INTO items (name, description, quantity) VALUES (?, ?, ?);", (name.upper(), descr, quantity))
+                self.connect.commit()
+                self.cursor.execute(f"ALTER TABLE taken ADD COLUMN {name.upper()} INTEGER NOT NULL DEFAULT(0)")
+                self.connect.commit()
+                answer = "Успешно"
+        return answer
 
-            connection = sqlite3.connect("taken.sqlite")
-            cur = connection.cursor()
-            cur.execute(f"ALTER TABLE NewTable ADD {name.upper()} INTEGER NOT NULL DEFAULT(0)")
-            connection.commit()
-            connection.close()
-            ans = "Успешно выполнено"
-    except sqlite3.Error as e:
-        print(f"Error creating item: {e}")
-        ans = "Ошибка при создании предмета"
-    return ans
-
-def TakeItemDetail(name):
-    try:
-        connection = sqlite3.connect("shkaf.sqlite")
-        cur = connection.cursor()
-        cur.execute("SELECT Name, Quantity FROM NewTable WHERE Name=?", (name.upper(),))
-        item = cur.fetchone()
-
+    def TakeItemDetail(self, name):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        self.cursor.execute("SELECT quantity FROM items WHERE name = ?", (name.upper(),))
+        item = self.cursor.fetchone()
         if item:
-            ans = f"Кол-во: {item[1]}\nСколько хотите взять?"
+            answer = f"Кол-во: {item}\nСколько хотите взять?"
         else:
-            ans = "Такого предмета нет"
-    except sqlite3.Error as e:
-        print(f"Error taking item details: {e}")
-    finally:
-        connection.close()
-    return ans
+            answer = "Такого предмета нет"
+        return answer
 
-def TakeItem(name, q, id):
-    try:
-        # Connect to the 'shkaf.sqlite' database
-        connection = sqlite3.connect("shkaf.sqlite")
-        cur = connection.cursor()
-
-        # Retrieve the current quantity from 'NewTable'
-        temp = cur.execute("SELECT Quantity FROM NewTable WHERE Name = ?", (name.upper(),)).fetchone()
-
-        # Check if the requested quantity is more than available
-        if int(q) > temp[0]:
+    def TakeItem(self, name, quantity, id):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        data = self.cursor.execute("SELECT quantity FROM items WHERE name=?", (name.upper(),)).fetchone()
+        if int(quantity) > data[0]:
             return "Попытка взять больше, чем имеется"
+        
+        self.cursor.execute("UPDATE items SET quantity =? WHERE name=?", (data[0] - int(quantity), name.upper()))
+        self.connect.commit()
 
-        # Update the quantity in 'NewTable'
-        cur.execute("UPDATE NewTable SET Quantity = ? WHERE Name = ?", (temp[0] - int(q), name.upper()))
-        connection.commit()
-        connection.close()
+        old = self.cursor.execute(f"SELECT {name.upper()} FROM taken WHERE id = ?", (id,)).fetchone()[0]
+        self.cursor.execute("UPDATE taken SET {} = ? WHERE id = ?".format(name.upper(),), (old + quantity, id))
+        self.connect.commit()
+        return "Успешно"
+    
+    def ReturnItemDetail(self, id):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        answer = ""
+        for i in self.cursor.execute("SELECT name FROM items").fetchall():
+            answer += f"{i[0]} - {str(self.cursor.execute(f"SELECT {i[0]} FROM taken WHERE id = ?", (id)).fetchall())}"
+        return answer
 
-        # Connect to the 'taken.sqlite' database
-        connection = sqlite3.connect("taken.sqlite")
-        cur = connection.cursor()
-
-        # Check if the item exists for the given id in 'NewTable'
-        item = cur.execute("SELECT id FROM NewTable WHERE id=?", (id,)).fetchone()
-
-
-        if item:
-            # Check if the specified column has a non-null value
-            if cur.execute(f"SELECT {name.upper()} FROM NewTable WHERE id = ?", (id,)).fetchone()[0] is not None:
-                # If the column has a value, update it by adding the requested quantity
-                a = cur.execute(f"SELECT {name.upper()} FROM NewTable WHERE id = ?", (id,)).fetchone()[0]
-                cur.execute("UPDATE NewTable SET {} = ? WHERE id = ?".format(name.upper()), (q + a, id))
-            else:
-                # If the column is null, update it with the requested quantity
-                cur.execute("UPDATE NewTable SET {} = ? WHERE id = ?".format(name.upper()), (q, id))
-        else:
-            # If the item doesn't exist for the given id, insert a new row in 'NewTable'
-            cur.execute("INSERT INTO NewTable (id, {}) VALUES (?, ?)".format(name.upper()), (id, q))
-
-        connection.commit()
-        connection.close()
-    except sqlite3.Error as e:
-        print(f"Error taking item: {e}")
-        return "Ошибка при взятии предмета"
-    return "Успешно"
-
-
-def ReturnItemDetail(id):
-    ans = ''
-    try:
-        connection = sqlite3.connect("shkaf.sqlite")
-        cur = connection.cursor()
-        temp = cur.execute("SELECT Name FROM NewTable").fetchall()
-        print(temp)
-        connection.close()
-
-        connection  = sqlite3.connect("taken.sqlite")
-        cur = connection.cursor()
-        for i in temp:
-            a = cur.execute(f"SELECT {i[0]} FROM NewTable WHERE id = ?", (id,)).fetchall()
-            print(a)
-            ans += f"{i[0]} - {str(a[0])[1:-2:1]}\n"
-    except sqlite3.Error as e:
-        print(f"Error returning item details: {e}")
-    finally:
-        connection.close()
-    return ans
-
-def ReturnItems(name, q, id):
-    try:
-        connection  = sqlite3.connect("taken.sqlite")
-        cur = connection.cursor()
-        temp = cur.execute(f"SELECT {name.upper()} FROM NewTable WHERE id = ?", (id,)).fetchone()
-        if int(q) > temp[0]:
+    def ReturnItem(self, name, quantity, id):
+        self.connect = sqlite3.connect('db.sqlite')
+        self.cursor = self.connect.cursor()
+        data = self.cursor.execute(f"SELECT {name.upper()} FROM taken WHERE id = ?", (id)).fetchone()
+        if int(quantity) > data[0]:
             return "Попытка вернуть больше, чем имеется"
-        cur.execute(f"UPDATE NewTable SET {name.upper()} = ? WHERE id = ?", (temp[0] - int(q), id))
-        connection.commit()
-        connection.close()
-
-        connection  = sqlite3.connect("shkaf.sqlite")
-        cur = connection.cursor()
-        temp = cur.execute("SELECT Quantity FROM NewTable WHERE Name = ?", (name.upper(),)).fetchone()
-        cur.execute("UPDATE NewTable SET Quantity = ? WHERE Name = ?", (temp[0] + int(q), name.upper()))
-        connection.commit()
-        connection.close()
-    except sqlite3.Error as e:
-        print(f"Error returning item: {e}")
-        return "Ошибка прям возврате предмета"
-    return "Успешно"
+        self.crsor.execute(f"UPDATE taken SET {name.upper()} = ? WHERE id = ?", (data[0] - int(quantity), id))
+        self.connect.commit()
+        
+        data = self.cursor.execute("SELECT quantity FROM items WHERE name = ?", (name.upper(),)).fetchone()
+        self.cursor.execute("UPDATE items SET quantity =? WHERE name =?", (data[0] + int(quantity), name.upper()))
+        self.connect.commit()
+        return "Успешно"
+    

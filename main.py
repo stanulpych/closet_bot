@@ -1,7 +1,10 @@
 import telebot
 from functools import partial
-from models import *
+from models import SQLconnect
 import textwrap
+
+
+sql = SQLconnect()
 
 bot = telebot.TeleBot('6629791393:AAF9w6GZZmIBK9h7zcfOGmiII65QJkXvLFc', parse_mode='HTML')
 
@@ -17,23 +20,23 @@ item7 = telebot.types.KeyboardButton('Удалить предмет')
 markup.add(item1, item2, item3, item4, item5, item6, item7)
 
 @bot.message_handler(commands=['start'])
-
 def answer(message):
+    sql.AddUser(message.from_user.username)
     bot.send_message(message.chat.id, 'Это Шкаф-бот!',reply_markup=markup)
     
 @bot.message_handler(content_types='text')
 def Ans(message):
     if message.text == "Список":
-        bot.send_message(message.chat.id, ListOfItems())
+        bot.send_message(message.chat.id, sql.ListOfItems())
     if message.text == "Создать предмет":
         bot.send_message(message.chat.id, "Введите название \n(Название должно быть в одно слово, например НазваниеПредмета)")
         bot.register_next_step_handler(message, NameOfItem)
     if message.text == "Взять предмет":
-        buttons = CreateButtons()
+        buttons = sql.CreateButtons()
         bot.send_message(message.chat.id, "Введите название предмета", reply_markup=buttons)
         bot.register_next_step_handler(message, TakeItemDetailBot)
     if message.text == "Вернуть предметы":
-        bot.send_message(message.chat.id, ReturnItemDetail(message.from_user.username))
+        bot.send_message(message.chat.id, sql.ReturnItemDetail(message.from_user.username))
         bot.register_next_step_handler(message, ReturnItemNameBot)
     if message.text == "Взятые":
         bot.send_message(message.chat.id, "Введите название предмета или тег пользователя")
@@ -50,11 +53,11 @@ def Ans(message):
 def NameOrTagListBot(message):
     Name = message.text
     if "@" in Name:
-        bot.send_message(message.chat.id, ListOfTakenByTag(Name[1::1]))
+        bot.send_message(message.chat.id, sql.ListOfTakenByTag(Name[1::1]))
     elif Name == "Все":
-        bot.send_message(message.chat.id, ListOfTaken())
+        bot.send_message(message.chat.id, sql.ListOfTaken())
     else:
-        bot.send_message(message.chat.id, ListOfTakenByName(Name))
+        bot.send_message(message.chat.id, sql.ListOfTakenByName(Name))
 
 #Создание предмета в шкафу
 def NameOfItem(message):
@@ -81,15 +84,15 @@ def FinalCreate(Name, Discription,  message):
     if Quantity < 0:
         bot.send_message(message.chat.id, "Неверное значение")
     else:
-        bot.send_message(message.chat.id, CreateItem(Name, Discription, Quantity))
+        bot.send_message(message.chat.id, sql.CreateItem(Name, Discription, Quantity))
 
 
 
 #Взятие предмета из шкафа
 def TakeItemDetailBot(message):
     Name = message.text
-    bot.send_message(message.chat.id, TakeItemDetail(Name))
-    if TakeItemDetail(Name) == "Такого предмета нет":
+    bot.send_message(message.chat.id, sql.TakeItemDetail(Name))
+    if sql.TakeItemDetail(Name) == "Такого предмета нет":
         pass
     else:
         bot.register_next_step_handler(message, partial(TakeItemBot, Name))
@@ -102,7 +105,7 @@ def TakeItemBot(Name, message):
     if Quantity < 0:
         bot.send_message(message.chat.id, "Неверное значение", reply_markup=markup)
     else:
-        bot.send_message(message.chat.id, TakeItem(Name, Quantity, message.from_user.username), reply_markup=markup)
+        bot.send_message(message.chat.id, sql.TakeItem(Name, Quantity, message.from_user.username), reply_markup=markup)
 
 
 #Возврат предмета в шкаф 
@@ -119,7 +122,7 @@ def ReturnItemBot(Name, message):
     if Quantity < 0:
         bot.send_message(message.chat.id, "Неверное значение")
     else:
-        ReturnItems(Name, Quantity, message.from_user.username)
+        sql.ReturnItems(Name, Quantity, message.from_user.username)
         bot.send_message(message.chat.id, "Успешно")
 
 
@@ -133,11 +136,11 @@ def EditBot(Name, message):
     if Quantity < 0:
         bot.send_message(message.chat.id, "Неверное значение")
     else:
-        EditQuantity(Name, Quantity)
+        sql.EditQuantity(Name, Quantity)
         bot.send_message(message.chat.id, "Успешно")
 
 #
 def DeleteItemBot(message):
     Name = message.text
-    bot.send_message(message.chat.id, DeleteItem(Name))
+    bot.send_message(message.chat.id, sql.DeleteItem(Name))
 bot.infinity_polling()

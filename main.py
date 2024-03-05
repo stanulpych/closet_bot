@@ -52,12 +52,16 @@ def Ans(message):
 
 def NameOrTagListBot(message):
     Name = message.text
-    if "@" in Name:
-        bot.send_message(message.chat.id, sql.ListOfTakenByTag(Name[1::1]))
-    elif Name == "Все":
-        bot.send_message(message.chat.id, sql.ListOfTaken())
-    else:
-        bot.send_message(message.chat.id, sql.ListOfTakenByName(Name))
+    try:
+        if "@" in Name:
+            bot.send_message(message.chat.id, sql.ListOfTakenByTag(Name[1::1]))
+        elif Name == "Все":
+            bot.send_message(message.chat.id, sql.ListOfTaken())
+        else:
+            bot.send_message(message.chat.id, sql.ListOfTakenByName(Name))
+    except Exception as e:
+        bot.send_message(message, text="Такого тега или предмета не найдено")
+
 
 #Создание предмета в шкафу
 def NameOfItem(message):

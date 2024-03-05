@@ -47,7 +47,10 @@ class SQLconnect():
             return "Все предметы на месте!"
         
     def ListOfTakenByName(self, name):
-        self.cursor.execute(f"SELECT id, {name.upper()} FROM taken")
+        try:
+            self.cursor.execute(f"SELECT id, {name.upper()} FROM taken")
+        except sqlite3.OperationalError:
+            return 'No such item'
         data = self.cursor.fetchall()
         answer = f"<pre>{tabulate(data, headers = ['TAGS', f'{name.upper()}'],  tablefmt='orgtbl', colalign=('center',))}</pre>"
         return answer
